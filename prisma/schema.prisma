@@ -1,0 +1,112 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CLIENT
+  PROVIDER
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum DayOfWeek {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+enum ExceptionType {
+  DAY_OFF
+  VACATION
+  CUSTOM_HOURS
+  HOLIDAY
+}
+
+model User {
+  id                   Int                 @id @default(autoincrement())
+  email                String              @unique
+  hashedPassword       String
+  role                 UserRole            @default(CLIENT)
+  clientAppointments   Appointment[]       @relation("ClientAppointments")
+  providerAppointments Appointment[]       @relation("ProviderAppointments")
+  workSchedules        WorkSchedule[]
+  scheduleExceptions   ScheduleException[]
+  providerSettings     ProviderSettings?
+
+  @@index([email])
+}
+
+model Appointment {
+  id              Int               @id @default(autoincrement())
+  title           String
+  description     String?
+  dateTime        DateTime
+  durationMinutes Int               @default(60)
+  status          AppointmentStatus @default(PENDING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  clientId        Int
+  providerId      Int
+  client          User              @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Cascade)
+  provider        User              @relation("ProviderAppointments", fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model WorkSchedule {
+  id                  Int       @id @default(autoincrement())
+  providerId          Int
+  dayOfWeek           DayOfWeek
+  startTime           String
+  endTime             String
+  isActive            Boolean   @default(true)
+  slotDurationMinutes Int       @default(30)
+  breakStart          String?
+  breakEnd            String?
+  provider            User      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, dayOfWeek])
+}
+
+model ScheduleException {
+  id                  Int           @id @default(autoincrement())
+  providerId          Int
+  date                DateTime      @db.Date
+  exceptionType       ExceptionType
+  startTime           String?
+  endTime             String?
+  slotDurationMinutes Int?
+  reason              String?
+  provider            User          @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, date])
+}
+
+model ProviderSettings {
+  id                  Int     @id @default(autoincrement())
+  providerId          Int     @unique
+  defaultSlotDuration Int     @default(30)
+  advanceBookingDays  Int     @default(30)
+  sameDayBooking      Boolean @default(true)
+  timezone            String  @default("UTC")
+  provider            User    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model ConversationState {
+  phone     String   @id
+  state     String   @default("INICIO")
+  context   Json     @default("{}")
+  updatedAt DateTime @updatedAt
+}
