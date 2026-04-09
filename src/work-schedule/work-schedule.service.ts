@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AppointmentStatus, DayOfWeek, ExceptionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto';
@@ -30,7 +34,9 @@ function timeToMinutes(t: string): number {
 
 /** Converts total minutes to "HH:MM" */
 function minutesToTime(minutes: number): string {
-  const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+  const h = Math.floor(minutes / 60)
+    .toString()
+    .padStart(2, '0');
   const m = (minutes % 60).toString().padStart(2, '0');
   return `${h}:${m}`;
 }
@@ -67,9 +73,17 @@ export class WorkScheduleService {
 
   async createSchedule(dto: CreateWorkScheduleDto) {
     const existing = await this.prisma.workSchedule.findUnique({
-      where: { providerId_dayOfWeek: { providerId: dto.providerId, dayOfWeek: dto.dayOfWeek } },
+      where: {
+        providerId_dayOfWeek: {
+          providerId: dto.providerId,
+          dayOfWeek: dto.dayOfWeek,
+        },
+      },
     });
-    if (existing) throw new BadRequestException(`Schedule for ${dto.dayOfWeek} already exists`);
+    if (existing)
+      throw new BadRequestException(
+        `Schedule for ${dto.dayOfWeek} already exists`,
+      );
     return this.prisma.workSchedule.create({ data: dto });
   }
 
@@ -97,11 +111,16 @@ export class WorkScheduleService {
     const existing = await this.prisma.scheduleException.findUnique({
       where: { providerId_date: { providerId: dto.providerId, date } },
     });
-    if (existing) throw new BadRequestException(`Exception for ${dto.date} already exists`);
+    if (existing)
+      throw new BadRequestException(`Exception for ${dto.date} already exists`);
     return this.prisma.scheduleException.create({ data: { ...dto, date } });
   }
 
-  async getExceptions(providerId: number, startDate?: string, endDate?: string) {
+  async getExceptions(
+    providerId: number,
+    startDate?: string,
+    endDate?: string,
+  ) {
     return this.prisma.scheduleException.findMany({
       where: {
         providerId,
@@ -119,7 +138,9 @@ export class WorkScheduleService {
   }
 
   async deleteException(id: number) {
-    const ex = await this.prisma.scheduleException.findUnique({ where: { id } });
+    const ex = await this.prisma.scheduleException.findUnique({
+      where: { id },
+    });
     if (!ex) throw new NotFoundException('Exception not found');
     return this.prisma.scheduleException.delete({ where: { id } });
   }
@@ -157,9 +178,13 @@ export class WorkScheduleService {
 
     if (exception) {
       if (
-        ([ExceptionType.DAY_OFF, ExceptionType.VACATION, ExceptionType.HOLIDAY] as ExceptionType[]).includes(
-          exception.exceptionType,
-        )
+        (
+          [
+            ExceptionType.DAY_OFF,
+            ExceptionType.VACATION,
+            ExceptionType.HOLIDAY,
+          ] as ExceptionType[]
+        ).includes(exception.exceptionType)
       ) {
         return {
           isAvailable: false,
@@ -193,7 +218,13 @@ export class WorkScheduleService {
     }
 
     // 3. Generate slots
-    const slots = generateSlots(startTime, endTime, slotDuration, breakStart, breakEnd);
+    const slots = generateSlots(
+      startTime,
+      endTime,
+      slotDuration,
+      breakStart,
+      breakEnd,
+    );
 
     // 4. Filter occupied slots
     const startOfDay = new Date(targetDate);
@@ -204,7 +235,9 @@ export class WorkScheduleService {
     const booked = await this.prisma.appointment.findMany({
       where: {
         providerId,
-        status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
+        status: {
+          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+        },
         dateTime: { gte: startOfDay, lte: endOfDay },
       },
     });

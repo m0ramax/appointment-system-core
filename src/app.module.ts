@@ -5,6 +5,8 @@ import { AuthModule } from './auth/auth.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { WorkScheduleModule } from './work-schedule/work-schedule.module';
 import { WebhookModule } from './webhook/webhook.module';
+import { BusinessModule } from './business/business.module';
+import { ServicesModule } from './services/services.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { WebhookModule } from './webhook/webhook.module';
     AppointmentsModule,
     WorkScheduleModule,
     WebhookModule,
+    BusinessModule,
+    ServicesModule,
   ],
 })
 export class AppModule {}

@@ -12,18 +12,30 @@ import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { StateMachineService } from './state-machine.service';
+import Twilio from 'twilio';
 
 @ApiTags('webhook')
 @Controller('webhook')
 export class WebhookController {
   private readonly verifyToken: string;
+  private readonly twilioClient: ReturnType<typeof Twilio> | null;
+  private readonly twilioFrom: string;
 
   constructor(
     private config: ConfigService,
     private prisma: PrismaService,
     private stateMachine: StateMachineService,
   ) {
-    this.verifyToken = this.config.get<string>('WHATSAPP_VERIFY_TOKEN', 'agendya_verify_token');
+    this.verifyToken = this.config.get<string>(
+      'WHATSAPP_VERIFY_TOKEN',
+      'agendya_verify_token',
+    );
+
+    const accountSid = this.config.get<string>('TWILIO_ACCOUNT_SID');
+    const authToken = this.config.get<string>('TWILIO_AUTH_TOKEN');
+    this.twilioFrom = this.config.get<string>('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886');
+
+    this.twilioClient = accountSid && authToken ? Twilio(accountSid, authToken) : null;
   }
 
   /** Meta WhatsApp Cloud API verification */
@@ -46,6 +58,7 @@ export class WebhookController {
   async receive(@Req() req: Request, @Res() res: Response) {
     const contentType = req.headers['content-type'] ?? '';
     let phone = '';
+    let toNumber = '';
     let message = '';
     let isTwilio = false;
 
@@ -53,6 +66,7 @@ export class WebhookController {
       // Twilio
       const body = req.body as Record<string, string>;
       phone = (body['From'] ?? '').replace('whatsapp:', '').trim();
+      toNumber = (body['To'] ?? '').replace('whatsapp:', '').trim();
       message = (body['Body'] ?? '').trim();
       isTwilio = true;
     } else {
@@ -62,9 +76,11 @@ export class WebhookController {
         return res.json({ status: 'ok' });
       }
       try {
-        const msg = body.entry[0].changes[0].value.messages[0];
+        const change = body.entry[0].changes[0].value;
+        const msg = change.messages[0];
         if (msg.type !== 'text') return res.json({ status: 'ok' });
         phone = msg.from;
+        toNumber = change.metadata?.display_phone_number ?? '';
         message = msg.text.body.trim();
       } catch {
         return res.json({ status: 'ok' });
@@ -74,7 +90,9 @@ export class WebhookController {
     if (!phone || !message) return res.json({ status: 'ok' });
 
     // Load or create conversation state
-    let conv = await this.prisma.conversationState.findUnique({ where: { phone } });
+    let conv = await this.prisma.conversationState.findUnique({
+      where: { phone },
+    });
     if (!conv) {
       conv = await this.prisma.conversationState.create({
         data: { phone, state: 'INICIO', context: {} },
@@ -87,6 +105,7 @@ export class WebhookController {
       conv.context as Record<string, any>,
       message,
       phone,
+      toNumber,
     );
 
     // Persist new state
@@ -96,7 +115,7 @@ export class WebhookController {
     });
 
     if (isTwilio) {
-      res.set('Content-Type', 'application/xml');
+      res.set('Content-Type', 'text/xml');
       return res.send(
         `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${reply}</Message></Response>`,
       );
