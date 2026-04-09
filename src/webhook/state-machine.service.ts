@@ -1,6 +1,6 @@
 /**
  * Máquina de estados para el flujo de agendamiento por WhatsApp.
- * Flujo: INICIO → ELIGIENDO_SERVICIO → ELIGIENDO_DIA → ELIGIENDO_HORA → CONFIRMANDO → CONFIRMADO
+ * Flujo: INICIO → ELIGIENDO_SERVICIO → [ELIGIENDO_PROVIDER] → ELIGIENDO_DIA → ELIGIENDO_HORA → CONFIRMANDO → CONFIRMADO
  */
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
@@ -15,12 +15,6 @@ interface StepResult {
   nextState: string;
   nextContext: Record<string, any>;
 }
-
-const SERVICIOS = [
-  { id: 1, nombre: 'Consulta General', duracion: 30 },
-  { id: 2, nombre: 'Consulta de Seguimiento', duracion: 30 },
-  { id: 3, nombre: 'Revisión', duracion: 30 },
-];
 
 const AFIRMACIONES = new Set(['si', 'sí', 'yes', 's', '1', 'ok', 'confirmar', 'confirmo']);
 const NEGACIONES = new Set(['no', 'n', '0', 'cancelar', 'cancel']);
@@ -70,18 +64,20 @@ export class StateMachineService {
     context: Record<string, any>,
     message: string,
     phone: string,
+    toNumber: string,
   ): Promise<StepResult> {
     const msg = message.trim().toLowerCase();
     const ctx = { ...context, phone };
 
-    // Reiniciar si ya terminó
     const currentState = state === 'CONFIRMADO' ? 'INICIO' : state;
 
     switch (currentState) {
       case 'INICIO':
-        return this.handleInicio(ctx);
+        return this.handleInicio(ctx, toNumber);
       case 'ELIGIENDO_SERVICIO':
         return this.handleServicio(ctx, msg);
+      case 'ELIGIENDO_PROVIDER':
+        return this.handleProvider(ctx, msg);
       case 'ELIGIENDO_DIA':
         return this.handleDia(ctx, msg);
       case 'ELIGIENDO_HORA':
@@ -89,15 +85,19 @@ export class StateMachineService {
       case 'CONFIRMANDO':
         return this.handleConfirmando(ctx, msg, phone);
       default:
-        return this.handleInicio(ctx);
+        return this.handleInicio(ctx, toNumber);
     }
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  private async handleInicio(ctx: Record<string, any>): Promise<StepResult> {
-    const provider = await this.prisma.user.findFirst({ where: { role: UserRole.PROVIDER } });
-    if (!provider) {
+  private async handleInicio(ctx: Record<string, any>, toNumber: string): Promise<StepResult> {
+    const business = await this.prisma.business.findUnique({
+      where: { whatsappNumber: toNumber },
+      include: { services: { where: { isActive: true }, orderBy: { name: 'asc' } } },
+    });
+
+    if (!business) {
       return {
         reply: 'Lo sentimos, el sistema de agendamiento no está disponible.',
         nextState: 'INICIO',
@@ -105,29 +105,99 @@ export class StateMachineService {
       };
     }
 
-    const menu = SERVICIOS.map((s) => `${s.id}. ${s.nombre}`).join('\n');
+    if (!business.services.length) {
+      return {
+        reply: 'Lo sentimos, no hay servicios disponibles en este momento.',
+        nextState: 'INICIO',
+        nextContext: {},
+      };
+    }
+
+    const menu = business.services.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
     return {
-      reply: `Hola! Bienvenido al sistema de agendamiento.\n\n¿Qué tipo de cita necesitas?\n${menu}\n\nResponde con el número o el nombre.`,
+      reply: `Hola! Bienvenido a ${business.name}.\n\n¿Qué tipo de cita necesitas?\n${menu}\n\nResponde con el número o el nombre.`,
       nextState: 'ELIGIENDO_SERVICIO',
-      nextContext: { provider_id: provider.id, phone: ctx.phone },
+      nextContext: {
+        phone: ctx.phone,
+        business_id: business.id,
+        business_name: business.name,
+        allow_provider_selection: business.allowProviderSelection,
+        services: business.services.map((s) => ({ id: s.id, name: s.name, duration: s.durationMinutes })),
+      },
     };
   }
 
   private async handleServicio(ctx: Record<string, any>, msg: string): Promise<StepResult> {
-    let servicio = SERVICIOS.find((s) => s.id === parseInt(msg));
-    if (!servicio) {
-      servicio = SERVICIOS.find((s) => s.nombre.toLowerCase().includes(msg) || msg.includes(s.nombre.toLowerCase()));
+    const services: { id: number; name: string; duration: number }[] = ctx.services ?? [];
+
+    let service: { id: number; name: string; duration: number } | undefined =
+      services[parseInt(msg) - 1];
+    if (!service) {
+      service = services.find(
+        (s) => s.name.toLowerCase().includes(msg) || msg.includes(s.name.toLowerCase()),
+      );
     }
 
-    if (!servicio) {
-      const menu = SERVICIOS.map((s) => `${s.id}. ${s.nombre}`).join('\n');
+    if (!service) {
+      const menu = services.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
       return { reply: `No reconocí esa opción. Elige:\n${menu}`, nextState: 'ELIGIENDO_SERVICIO', nextContext: ctx };
     }
 
+    const nextCtx = { ...ctx, service_id: service.id, servicio: service.name, duracion: service.duration };
+
+    if (ctx.allow_provider_selection) {
+      return this.showProviderSelection(nextCtx);
+    }
+
+    return this.askForDate(nextCtx);
+  }
+
+  private async showProviderSelection(ctx: Record<string, any>): Promise<StepResult> {
+    const providers = await this.prisma.user.findMany({
+      where: {
+        businessId: ctx.business_id,
+        role: { in: [UserRole.PROVIDER, UserRole.OWNER] },
+      },
+      select: { id: true, email: true },
+    });
+
+    if (!providers.length) {
+      return {
+        reply: 'No hay proveedores disponibles. Intenta más tarde.',
+        nextState: 'INICIO',
+        nextContext: {},
+      };
+    }
+
+    const menu = providers.map((p, i) => `${i + 1}. ${p.email}`).join('\n');
     return {
-      reply: `Perfecto, ${servicio.nombre}.\n\n¿Para qué fecha?\n- hoy / mañana\n- DD/MM/YYYY (ej: 15/04/2026)\n- YYYY-MM-DD (ej: 2026-04-15)`,
+      reply: `¿Con quién deseas agendar?\n${menu}\n\nResponde con el número.`,
+      nextState: 'ELIGIENDO_PROVIDER',
+      nextContext: {
+        ...ctx,
+        providers: providers.map((p) => ({ id: p.id, email: p.email })),
+      },
+    };
+  }
+
+  private async handleProvider(ctx: Record<string, any>, msg: string): Promise<StepResult> {
+    const providers: { id: number; email: string }[] = ctx.providers ?? [];
+    const idx = parseInt(msg.trim());
+    const provider = providers[idx - 1];
+
+    if (!provider) {
+      const menu = providers.map((p, i) => `${i + 1}. ${p.email}`).join('\n');
+      return { reply: `No reconocí esa opción. Elige:\n${menu}`, nextState: 'ELIGIENDO_PROVIDER', nextContext: ctx };
+    }
+
+    return this.askForDate({ ...ctx, provider_id: provider.id });
+  }
+
+  private askForDate(ctx: Record<string, any>): StepResult {
+    return {
+      reply: `Perfecto, ${ctx.servicio}.\n\n¿Para qué fecha?\n- hoy / mañana\n- DD/MM/YYYY (ej: 15/04/2026)\n- YYYY-MM-DD (ej: 2026-04-15)`,
       nextState: 'ELIGIENDO_DIA',
-      nextContext: { ...ctx, servicio: servicio.nombre, duracion: servicio.duracion },
+      nextContext: ctx,
     };
   }
 
@@ -149,6 +219,26 @@ export class StateMachineService {
     }
 
     const dateStr = date.toISOString().split('T')[0];
+
+    // Si no se eligió provider, buscar el primero disponible del negocio
+    if (!ctx.provider_id) {
+      const result = await this.findFirstAvailableProvider(ctx.business_id, dateStr, ctx.duracion);
+      if (!result) {
+        return {
+          reply: `Sin disponibilidad el ${dateStr}. ¿Tienes otra fecha?`,
+          nextState: 'ELIGIENDO_DIA',
+          nextContext: ctx,
+        };
+      }
+      const { providerId, slots } = result;
+      const menu = slots.map((s, i) => `${i + 1}. ${s}`).join('\n');
+      return {
+        reply: `Horarios disponibles para el ${dateStr}:\n\n${menu}\n\nResponde con el número o la hora (ej: 09:30).`,
+        nextState: 'ELIGIENDO_HORA',
+        nextContext: { ...ctx, dia: dateStr, slots, provider_id: providerId },
+      };
+    }
+
     const availability = await this.workSchedule.getAvailability(ctx.provider_id, dateStr);
 
     if (!availability.isAvailable || !availability.availableSlots.length) {
@@ -224,6 +314,8 @@ export class StateMachineService {
           durationMinutes: ctx.duracion,
           providerId: ctx.provider_id,
           clientId: client.id,
+          businessId: ctx.business_id,
+          serviceId: ctx.service_id,
         },
       });
     } catch (e: any) {
@@ -247,6 +339,32 @@ export class StateMachineService {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+
+  private async findFirstAvailableProvider(
+    businessId: number,
+    dateStr: string,
+    duration: number,
+  ): Promise<{ providerId: number; slots: string[] } | null> {
+    const providers = await this.prisma.user.findMany({
+      where: {
+        businessId,
+        role: { in: [UserRole.PROVIDER, UserRole.OWNER] },
+      },
+      select: { id: true },
+    });
+
+    for (const provider of providers) {
+      const availability = await this.workSchedule.getAvailability(provider.id, dateStr);
+      if (availability.isAvailable && availability.availableSlots.length) {
+        return {
+          providerId: provider.id,
+          slots: availability.availableSlots.map((s: any) => s.start),
+        };
+      }
+    }
+
+    return null;
+  }
 
   private async getOrCreateGuestClient(phone: string) {
     const clean = phone.replace(/\D/g, '');

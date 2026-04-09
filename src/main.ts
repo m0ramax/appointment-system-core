@@ -9,14 +9,20 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  app.enableCors({ origin: ['http://localhost:3000', 'http://localhost:4321'] });
+  app.enableCors({
+    origin: ['http://localhost:3000', 'http://localhost:4321'],
+  });
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Appointment System')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
-  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
+  SwaggerModule.setup(
+    'docs',
+    app,
+    SwaggerModule.createDocument(app, swaggerConfig),
+  );
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);

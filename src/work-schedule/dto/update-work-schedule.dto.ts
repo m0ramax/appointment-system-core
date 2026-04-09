@@ -1,4 +1,10 @@
-import { IsBoolean, IsInt, IsOptional, IsString, Matches } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;

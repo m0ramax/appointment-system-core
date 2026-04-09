@@ -15,8 +15,14 @@ export interface AuthUser {
 }
 
 const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  [AppointmentStatus.PENDING]: [AppointmentStatus.CONFIRMED, AppointmentStatus.CANCELLED],
-  [AppointmentStatus.CONFIRMED]: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED],
+  [AppointmentStatus.PENDING]: [
+    AppointmentStatus.CONFIRMED,
+    AppointmentStatus.CANCELLED,
+  ],
+  [AppointmentStatus.CONFIRMED]: [
+    AppointmentStatus.COMPLETED,
+    AppointmentStatus.CANCELLED,
+  ],
   [AppointmentStatus.CANCELLED]: [],
   [AppointmentStatus.COMPLETED]: [],
 };
@@ -52,14 +58,21 @@ export class AppointmentsService {
   }
 
   async findMine(user: AuthUser) {
-    const where = user.role === UserRole.CLIENT ? { clientId: user.id } : { providerId: user.id };
-    return this.prisma.appointment.findMany({ where, orderBy: { dateTime: 'asc' } });
+    const where =
+      user.role === UserRole.CLIENT
+        ? { clientId: user.id }
+        : { providerId: user.id };
+    return this.prisma.appointment.findMany({
+      where,
+      orderBy: { dateTime: 'asc' },
+    });
   }
 
   async findOne(id: number, user: AuthUser) {
     const appt = await this.prisma.appointment.findUnique({ where: { id } });
     if (!appt) throw new NotFoundException('Appointment not found');
-    if (appt.clientId !== user.id && appt.providerId !== user.id) throw new ForbiddenException();
+    if (appt.clientId !== user.id && appt.providerId !== user.id)
+      throw new ForbiddenException();
     return appt;
   }
 
@@ -99,7 +112,9 @@ export class AppointmentsService {
     const existing = await this.prisma.appointment.findMany({
       where: {
         providerId,
-        status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
+        status: {
+          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+        },
         dateTime: { gte: startOfDay, lte: endOfDay },
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
@@ -115,11 +130,20 @@ export class AppointmentsService {
     }
   }
 
-  private validateTransition(current: AppointmentStatus, next: AppointmentStatus, role: UserRole) {
+  private validateTransition(
+    current: AppointmentStatus,
+    next: AppointmentStatus,
+    role: UserRole,
+  ) {
     if (!VALID_TRANSITIONS[current].includes(next)) {
-      throw new BadRequestException(`Invalid transition from ${current} to ${next}`);
+      throw new BadRequestException(
+        `Invalid transition from ${current} to ${next}`,
+      );
     }
-    const providerOnly: AppointmentStatus[] = [AppointmentStatus.CONFIRMED, AppointmentStatus.COMPLETED];
+    const providerOnly: AppointmentStatus[] = [
+      AppointmentStatus.CONFIRMED,
+      AppointmentStatus.COMPLETED,
+    ];
     if (providerOnly.includes(next) && role !== UserRole.PROVIDER) {
       throw new ForbiddenException(`Only providers can set status to ${next}`);
     }

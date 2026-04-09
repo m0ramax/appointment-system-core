@@ -44,7 +44,10 @@ export class WorkScheduleController {
 
   @Put(':id')
   @Roles('PROVIDER')
-  updateSchedule(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateWorkScheduleDto) {
+  updateSchedule(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateWorkScheduleDto,
+  ) {
     return this.service.updateSchedule(id, dto);
   }
 
@@ -84,7 +87,10 @@ export class WorkScheduleController {
 
   @Post('settings')
   @Roles('PROVIDER')
-  upsertSettings(@CurrentUser() user: any, @Body() dto: UpsertProviderSettingsDto) {
+  upsertSettings(
+    @CurrentUser() user: any,
+    @Body() dto: UpsertProviderSettingsDto,
+  ) {
     return this.service.upsertSettings(user.id, dto);
   }
 
