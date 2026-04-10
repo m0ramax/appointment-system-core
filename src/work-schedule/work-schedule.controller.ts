@@ -31,19 +31,20 @@ export class WorkScheduleController {
   // ── Schedules ──────────────────────────────────────────────────────────────
 
   @Post()
-  @Roles('PROVIDER')
-  createSchedule(@Body() dto: CreateWorkScheduleDto) {
+  @Roles('PROVIDER', 'OWNER')
+  createSchedule(@Body() dto: CreateWorkScheduleDto, @CurrentUser() user: any) {
+    dto.providerId = user.id;
     return this.service.createSchedule(dto);
   }
 
   @Get()
-  @Roles('PROVIDER')
+  @Roles('PROVIDER', 'OWNER')
   getSchedules(@CurrentUser() user: any) {
     return this.service.getSchedules(user.id);
   }
 
   @Put(':id')
-  @Roles('PROVIDER')
+  @Roles('PROVIDER', 'OWNER')
   updateSchedule(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateWorkScheduleDto,
@@ -52,7 +53,7 @@ export class WorkScheduleController {
   }
 
   @Delete(':id')
-  @Roles('PROVIDER')
+  @Roles('PROVIDER', 'OWNER')
   deleteSchedule(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteSchedule(id);
   }
@@ -60,13 +61,14 @@ export class WorkScheduleController {
   // ── Exceptions ─────────────────────────────────────────────────────────────
 
   @Post('exceptions')
-  @Roles('PROVIDER')
-  createException(@Body() dto: CreateExceptionDto) {
+  @Roles('PROVIDER', 'OWNER')
+  createException(@Body() dto: CreateExceptionDto, @CurrentUser() user: any) {
+    dto.providerId = user.id;
     return this.service.createException(dto);
   }
 
   @Get('exceptions')
-  @Roles('PROVIDER')
+  @Roles('PROVIDER', 'OWNER')
   @ApiQuery({ name: 'startDate', required: false })
   @ApiQuery({ name: 'endDate', required: false })
   getExceptions(
@@ -78,7 +80,7 @@ export class WorkScheduleController {
   }
 
   @Delete('exceptions/:id')
-  @Roles('PROVIDER')
+  @Roles('PROVIDER', 'OWNER')
   deleteException(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteException(id);
   }
@@ -86,7 +88,7 @@ export class WorkScheduleController {
   // ── Settings ───────────────────────────────────────────────────────────────
 
   @Post('settings')
-  @Roles('PROVIDER')
+  @Roles('PROVIDER', 'OWNER')
   upsertSettings(
     @CurrentUser() user: any,
     @Body() dto: UpsertProviderSettingsDto,
@@ -95,7 +97,7 @@ export class WorkScheduleController {
   }
 
   @Get('settings')
-  @Roles('PROVIDER')
+  @Roles('PROVIDER', 'OWNER')
   getSettings(@CurrentUser() user: any) {
     return this.service.getSettings(user.id);
   }

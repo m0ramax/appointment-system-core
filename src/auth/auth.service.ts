@@ -1,10 +1,12 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -17,14 +19,24 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
+    return this.createUser(dto.email, dto.password, UserRole.CLIENT, null);
+  }
+
+  async registerOwner(dto: RegisterDto) {
+    return this.createUser(dto.email, dto.password, UserRole.OWNER, null);
+  }
+
+  async registerProvider(dto: RegisterDto, businessId: number) {
+    return this.createUser(dto.email, dto.password, UserRole.PROVIDER, businessId);
+  }
+
+  private async createUser(email: string, password: string, role: UserRole, businessId: number | null) {
+    const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('Email already registered');
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = await this.prisma.user.create({
-      data: { email: dto.email, hashedPassword, role: dto.role },
+      data: { email, hashedPassword, role, businessId },
     });
 
     return this.signToken(user.id, user.email, user.role, user.businessId);
