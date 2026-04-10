@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { AppointmentStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { WorkScheduleService } from '../work-schedule/work-schedule.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
@@ -29,7 +30,10 @@ const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private workSchedule: WorkScheduleService,
+  ) {}
 
   async create(dto: CreateAppointmentDto, clientId: number) {
     const provider = await this.prisma.user.findFirst({
@@ -43,6 +47,7 @@ export class AppointmentsService {
     }
 
     await this.checkOverlap(dto.providerId, dateTime, dto.durationMinutes);
+    await this.checkWithinSchedule(dto.providerId, dateTime, dto.durationMinutes);
 
     return this.prisma.appointment.create({
       data: {
@@ -127,6 +132,38 @@ export class AppointmentsService {
           `Time slot conflicts with existing appointment "${a.title}"`,
         );
       }
+    }
+  }
+
+  private async checkWithinSchedule(
+    providerId: number,
+    dateTime: Date,
+    durationMinutes: number,
+  ) {
+    const dateStr = dateTime.toISOString().split('T')[0];
+    const availability = await this.workSchedule.getAvailability(providerId, dateStr);
+
+    if (!availability.isAvailable) {
+      throw new BadRequestException(
+        `Provider is not available on this date: ${availability.reason}`,
+      );
+    }
+
+    const apptStart = dateTime.getUTCHours() * 60 + dateTime.getUTCMinutes();
+    const apptEnd = apptStart + durationMinutes;
+
+    const withinSlot = availability.availableSlots.some((slot: { start: string; end: string }) => {
+      const [sh, sm] = slot.start.split(':').map(Number);
+      const [eh, em] = slot.end.split(':').map(Number);
+      const slotStart = sh * 60 + sm;
+      const slotEnd = eh * 60 + em;
+      return apptStart >= slotStart && apptEnd <= slotEnd;
+    });
+
+    if (!withinSlot) {
+      throw new BadRequestException(
+        'Requested time is outside the provider\'s working hours',
+      );
     }
   }
 

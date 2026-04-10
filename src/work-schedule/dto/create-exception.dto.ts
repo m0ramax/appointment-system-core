@@ -13,8 +13,6 @@ const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 const timeMsg = 'Must be HH:MM format (e.g. 09:00)';
 
 export class CreateExceptionDto {
-  @ApiProperty()
-  @IsInt()
   providerId: number;
 
   @ApiProperty({ example: '2026-04-10' })

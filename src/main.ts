@@ -9,9 +9,10 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:4321'],
-  });
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+    : ['http://localhost:3000', 'http://localhost:4321'];
+  app.enableCors({ origin: allowedOrigins });
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Appointment System')
