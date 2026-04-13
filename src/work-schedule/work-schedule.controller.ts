@@ -31,7 +31,7 @@ export class WorkScheduleController {
   // ── Schedules ──────────────────────────────────────────────────────────────
 
   @Post()
-  @Roles('PROVIDER', 'OWNER')
+  @Roles('OWNER')
   @ApiQuery({ name: 'forProvider', required: false })
   createSchedule(
     @Body() dto: CreateWorkScheduleDto,
@@ -54,7 +54,7 @@ export class WorkScheduleController {
   }
 
   @Put(':id')
-  @Roles('PROVIDER', 'OWNER')
+  @Roles('OWNER')
   updateSchedule(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateWorkScheduleDto,
@@ -63,7 +63,7 @@ export class WorkScheduleController {
   }
 
   @Delete(':id')
-  @Roles('PROVIDER', 'OWNER')
+  @Roles('OWNER')
   deleteSchedule(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteSchedule(id);
   }
@@ -71,14 +71,14 @@ export class WorkScheduleController {
   // ── Exceptions ─────────────────────────────────────────────────────────────
 
   @Post('exceptions')
-  @Roles('PROVIDER', 'OWNER')
+  @Roles('OWNER')
   createException(@Body() dto: CreateExceptionDto, @CurrentUser() user: any) {
     dto.providerId = user.id;
     return this.service.createException(dto);
   }
 
   @Get('exceptions')
-  @Roles('PROVIDER', 'OWNER')
+  @Roles('OWNER')
   @ApiQuery({ name: 'startDate', required: false })
   @ApiQuery({ name: 'endDate', required: false })
   getExceptions(
@@ -90,7 +90,7 @@ export class WorkScheduleController {
   }
 
   @Delete('exceptions/:id')
-  @Roles('PROVIDER', 'OWNER')
+  @Roles('OWNER')
   deleteException(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteException(id);
   }
@@ -98,7 +98,7 @@ export class WorkScheduleController {
   // ── Settings ───────────────────────────────────────────────────────────────
 
   @Post('settings')
-  @Roles('PROVIDER', 'OWNER')
+  @Roles('OWNER')
   upsertSettings(
     @CurrentUser() user: any,
     @Body() dto: UpsertProviderSettingsDto,
@@ -107,7 +107,7 @@ export class WorkScheduleController {
   }
 
   @Get('settings')
-  @Roles('PROVIDER', 'OWNER')
+  @Roles('OWNER')
   getSettings(@CurrentUser() user: any) {
     return this.service.getSettings(user.id);
   }
