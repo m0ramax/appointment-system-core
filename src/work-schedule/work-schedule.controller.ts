@@ -32,15 +32,25 @@ export class WorkScheduleController {
 
   @Post()
   @Roles('PROVIDER', 'OWNER')
-  createSchedule(@Body() dto: CreateWorkScheduleDto, @CurrentUser() user: any) {
-    dto.providerId = user.id;
+  @ApiQuery({ name: 'forProvider', required: false })
+  createSchedule(
+    @Body() dto: CreateWorkScheduleDto,
+    @CurrentUser() user: any,
+    @Query('forProvider') forProvider?: string,
+  ) {
+    dto.providerId = forProvider && user.role === 'OWNER' ? +forProvider : user.id;
     return this.service.createSchedule(dto);
   }
 
   @Get()
   @Roles('PROVIDER', 'OWNER')
-  getSchedules(@CurrentUser() user: any) {
-    return this.service.getSchedules(user.id);
+  @ApiQuery({ name: 'forProvider', required: false })
+  getSchedules(
+    @CurrentUser() user: any,
+    @Query('forProvider') forProvider?: string,
+  ) {
+    const providerId = forProvider && user.role === 'OWNER' ? +forProvider : user.id;
+    return this.service.getSchedules(providerId);
   }
 
   @Put(':id')

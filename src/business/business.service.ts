@@ -45,4 +45,15 @@ export class BusinessService {
     await this.findOne(id);
     return this.prisma.business.delete({ where: { id } });
   }
+
+  async getTeam(businessId: number) {
+    return this.prisma.user.findMany({
+      where: {
+        businessId,
+        role: { in: ['PROVIDER', 'OWNER'] },
+      },
+      select: { id: true, email: true, role: true },
+      orderBy: { id: 'asc' },
+    });
+  }
 }

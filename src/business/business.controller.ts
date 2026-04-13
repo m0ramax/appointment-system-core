@@ -26,6 +26,12 @@ export class BusinessController {
     return this.service.findAll();
   }
 
+  @Get('team')
+  @Roles('OWNER')
+  getTeam(@CurrentUser() user: any) {
+    return this.service.getTeam(user.businessId);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);
