@@ -63,13 +63,14 @@ export class AppointmentsService {
   }
 
   async findMine(user: AuthUser) {
-    const where =
-      user.role === UserRole.CLIENT
-        ? { clientId: user.id }
-        : { providerId: user.id };
+    const isProvider = user.role === UserRole.PROVIDER || user.role === UserRole.OWNER;
+    const where = isProvider ? { providerId: user.id } : { clientId: user.id };
     return this.prisma.appointment.findMany({
       where,
       orderBy: { dateTime: 'asc' },
+      include: isProvider
+        ? { client: { select: { id: true, email: true } } }
+        : undefined,
     });
   }
 
