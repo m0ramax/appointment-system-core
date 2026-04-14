@@ -5,10 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AppointmentStatus, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkScheduleService } from '../work-schedule/work-schedule.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { CreateManualAppointmentDto } from './dto/create-manual-appointment.dto';
 
 export interface AuthUser {
   id: number;
@@ -94,6 +96,76 @@ export class AppointmentsService {
       throw new BadRequestException('Only pending appointments can be deleted');
     }
     return this.prisma.appointment.delete({ where: { id } });
+  }
+
+  async findByBusiness(
+    businessId: number,
+    date?: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    let rangeStart: Date;
+    let rangeEnd: Date;
+
+    if (startDate && endDate) {
+      rangeStart = new Date(startDate);
+      rangeStart.setUTCHours(0, 0, 0, 0);
+      rangeEnd = new Date(endDate);
+      rangeEnd.setUTCHours(23, 59, 59, 999);
+    } else {
+      const targetDate = new Date(date ?? new Date().toISOString().split('T')[0]);
+      rangeStart = new Date(targetDate);
+      rangeStart.setUTCHours(0, 0, 0, 0);
+      rangeEnd = new Date(targetDate);
+      rangeEnd.setUTCHours(23, 59, 59, 999);
+    }
+
+    return this.prisma.appointment.findMany({
+      where: {
+        provider: { businessId },
+        dateTime: { gte: rangeStart, lte: rangeEnd },
+        status: { notIn: [AppointmentStatus.CANCELLED] },
+      },
+      include: {
+        client: { select: { id: true, email: true } },
+        provider: { select: { id: true, email: true } },
+      },
+      orderBy: { dateTime: 'asc' },
+    });
+  }
+
+  async createManual(dto: CreateManualAppointmentDto, businessId: number) {
+    // Find or create client by email
+    let client = await this.prisma.user.findUnique({ where: { email: dto.clientEmail } });
+    if (!client) {
+      const hashedPassword = await bcrypt.hash(Math.random().toString(36), 10);
+      client = await this.prisma.user.create({
+        data: { email: dto.clientEmail, hashedPassword, role: UserRole.CLIENT, businessId: null },
+      });
+    }
+
+    // Validate provider belongs to the business
+    const provider = await this.prisma.user.findFirst({
+      where: { id: dto.providerId, businessId },
+    });
+    if (!provider) throw new NotFoundException('Provider not found in this business');
+
+    const dateTime = new Date(dto.dateTime);
+    await this.checkOverlap(dto.providerId, dateTime, dto.durationMinutes);
+
+    return this.prisma.appointment.create({
+      data: {
+        title: dto.title,
+        description: dto.description,
+        dateTime,
+        durationMinutes: dto.durationMinutes,
+        providerId: dto.providerId,
+        clientId: client.id,
+        serviceId: dto.serviceId,
+        status: AppointmentStatus.CONFIRMED,
+      },
+      include: { client: { select: { id: true, email: true } } },
+    });
   }
 
   async getProviders() {
