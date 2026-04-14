@@ -7,12 +7,14 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { CreateManualAppointmentDto } from './dto/create-manual-appointment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -29,6 +31,23 @@ export class AppointmentsController {
   @Roles('CLIENT')
   create(@Body() dto: CreateAppointmentDto, @CurrentUser() user: any) {
     return this.service.create(dto, user.id);
+  }
+
+  @Post('manual')
+  @Roles('OWNER')
+  createManual(@Body() dto: CreateManualAppointmentDto, @CurrentUser() user: any) {
+    return this.service.createManual(dto, user.businessId);
+  }
+
+  @Get('business')
+  @Roles('OWNER')
+  findByBusiness(
+    @CurrentUser() user: any,
+    @Query('date') date?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.service.findByBusiness(user.businessId, date, startDate, endDate);
   }
 
   @Get('providers')
