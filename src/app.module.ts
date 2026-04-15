@@ -7,6 +7,7 @@ import { WorkScheduleModule } from './work-schedule/work-schedule.module';
 import { WebhookModule } from './webhook/webhook.module';
 import { BusinessModule } from './business/business.module';
 import { ServicesModule } from './services/services.module';
+import { InviteModule } from './invite/invite.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ServicesModule } from './services/services.module';
     WebhookModule,
     BusinessModule,
     ServicesModule,
+    InviteModule,
   ],
 })
 export class AppModule {}

@@ -20,14 +20,14 @@ export class ServicesService {
 
   async update(id: number, dto: UpdateServiceDto, businessId: number) {
     const service = await this.prisma.service.findUnique({ where: { id } });
-    if (!service) throw new NotFoundException('Service not found');
+    if (!service) throw new NotFoundException('Servicio no encontrado');
     if (service.businessId !== businessId) throw new ForbiddenException();
     return this.prisma.service.update({ where: { id }, data: dto });
   }
 
   async remove(id: number, businessId: number) {
     const service = await this.prisma.service.findUnique({ where: { id } });
-    if (!service) throw new NotFoundException('Service not found');
+    if (!service) throw new NotFoundException('Servicio no encontrado');
     if (service.businessId !== businessId) throw new ForbiddenException();
     return this.prisma.service.delete({ where: { id } });
   }

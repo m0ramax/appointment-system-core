@@ -2,16 +2,20 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { InviteService } from '../invite/invite.service';
 
 @Injectable()
 export class BusinessService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private invite: InviteService,
+  ) {}
 
-  async create(dto: CreateBusinessDto, ownerId: number) {
+  async create(dto: CreateBusinessDto, ownerId: number, inviteToken?: string) {
     const existing = await this.prisma.business.findUnique({
       where: { whatsappNumber: dto.whatsappNumber },
     });
-    if (existing) throw new ConflictException('WhatsApp number already registered');
+    if (existing) throw new ConflictException('El número de WhatsApp ya está registrado');
 
     const business = await this.prisma.business.create({ data: dto });
 
@@ -19,6 +23,10 @@ export class BusinessService {
       where: { id: ownerId },
       data: { businessId: business.id },
     });
+
+    if (inviteToken) {
+      await this.invite.markUsed(inviteToken, business.id);
+    }
 
     return business;
   }
@@ -32,7 +40,7 @@ export class BusinessService {
       where: { id },
       include: { services: { where: { isActive: true } } },
     });
-    if (!business) throw new NotFoundException('Business not found');
+    if (!business) throw new NotFoundException('Negocio no encontrado');
     return business;
   }
 
