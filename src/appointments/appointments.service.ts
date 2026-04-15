@@ -15,6 +15,7 @@ import { CreateManualAppointmentDto } from './dto/create-manual-appointment.dto'
 export interface AuthUser {
   id: number;
   role: UserRole;
+  businessId?: number | null;
 }
 
 const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
@@ -41,11 +42,11 @@ export class AppointmentsService {
     const provider = await this.prisma.user.findFirst({
       where: { id: dto.providerId, role: UserRole.PROVIDER },
     });
-    if (!provider) throw new NotFoundException('Provider not found');
+    if (!provider) throw new NotFoundException('Proveedor no encontrado');
 
     const dateTime = new Date(dto.dateTime);
     if (dateTime <= new Date()) {
-      throw new BadRequestException('Cannot create appointments in the past');
+      throw new BadRequestException('No se pueden crear citas en el pasado');
     }
 
     await this.checkOverlap(dto.providerId, dateTime, dto.durationMinutes);
@@ -78,9 +79,19 @@ export class AppointmentsService {
 
   async findOne(id: number, user: AuthUser) {
     const appt = await this.prisma.appointment.findUnique({ where: { id } });
-    if (!appt) throw new NotFoundException('Appointment not found');
-    if (appt.clientId !== user.id && appt.providerId !== user.id)
-      throw new ForbiddenException();
+    if (!appt) throw new NotFoundException('Cita no encontrada');
+    if (user.role === UserRole.OWNER) {
+      // Owner can access any appointment whose provider belongs to their business
+      const provider = await this.prisma.user.findUnique({
+        where: { id: appt.providerId },
+        select: { businessId: true },
+      });
+      if (!provider || provider.businessId !== user.businessId)
+        throw new ForbiddenException();
+    } else {
+      if (appt.clientId !== user.id && appt.providerId !== user.id)
+        throw new ForbiddenException();
+    }
     return appt;
   }
 
@@ -92,8 +103,9 @@ export class AppointmentsService {
 
   async remove(id: number, user: AuthUser) {
     const appt = await this.findOne(id, user);
-    if (appt.status !== AppointmentStatus.PENDING) {
-      throw new BadRequestException('Only pending appointments can be deleted');
+    // Owners can delete any appointment; others can only delete PENDING
+    if (user.role !== UserRole.OWNER && appt.status !== AppointmentStatus.PENDING) {
+      throw new BadRequestException('Solo se pueden eliminar citas pendientes');
     }
     return this.prisma.appointment.delete({ where: { id } });
   }
@@ -103,27 +115,33 @@ export class AppointmentsService {
     date?: string,
     startDate?: string,
     endDate?: string,
+    all?: boolean,
   ) {
-    let rangeStart: Date;
-    let rangeEnd: Date;
+    const dateFilter: { gte?: Date; lte?: Date } = {};
 
-    if (startDate && endDate) {
-      rangeStart = new Date(startDate);
-      rangeStart.setUTCHours(0, 0, 0, 0);
-      rangeEnd = new Date(endDate);
-      rangeEnd.setUTCHours(23, 59, 59, 999);
-    } else {
-      const targetDate = new Date(date ?? new Date().toISOString().split('T')[0]);
-      rangeStart = new Date(targetDate);
-      rangeStart.setUTCHours(0, 0, 0, 0);
-      rangeEnd = new Date(targetDate);
-      rangeEnd.setUTCHours(23, 59, 59, 999);
+    if (!all) {
+      if (startDate && endDate) {
+        const rangeStart = new Date(startDate);
+        rangeStart.setUTCHours(0, 0, 0, 0);
+        const rangeEnd = new Date(endDate);
+        rangeEnd.setUTCHours(23, 59, 59, 999);
+        dateFilter.gte = rangeStart;
+        dateFilter.lte = rangeEnd;
+      } else {
+        const targetDate = new Date(date ?? new Date().toISOString().split('T')[0]);
+        const rangeStart = new Date(targetDate);
+        rangeStart.setUTCHours(0, 0, 0, 0);
+        const rangeEnd = new Date(targetDate);
+        rangeEnd.setUTCHours(23, 59, 59, 999);
+        dateFilter.gte = rangeStart;
+        dateFilter.lte = rangeEnd;
+      }
     }
 
     return this.prisma.appointment.findMany({
       where: {
         provider: { businessId },
-        dateTime: { gte: rangeStart, lte: rangeEnd },
+        ...(Object.keys(dateFilter).length > 0 ? { dateTime: dateFilter } : {}),
         status: { notIn: [AppointmentStatus.CANCELLED] },
       },
       include: {
@@ -148,10 +166,14 @@ export class AppointmentsService {
     const provider = await this.prisma.user.findFirst({
       where: { id: dto.providerId, businessId },
     });
-    if (!provider) throw new NotFoundException('Provider not found in this business');
+    if (!provider) throw new NotFoundException('Proveedor no encontrado en este negocio');
 
     const dateTime = new Date(dto.dateTime);
+    if (dateTime <= new Date()) {
+      throw new BadRequestException('No se pueden crear citas en el pasado');
+    }
     await this.checkOverlap(dto.providerId, dateTime, dto.durationMinutes);
+    await this.checkWithinSchedule(dto.providerId, dateTime, dto.durationMinutes);
 
     return this.prisma.appointment.create({
       data: {
@@ -202,7 +224,7 @@ export class AppointmentsService {
       const aEnd = new Date(a.dateTime.getTime() + a.durationMinutes * 60_000);
       if (dateTime < aEnd && end > a.dateTime) {
         throw new BadRequestException(
-          `Time slot conflicts with existing appointment "${a.title}"`,
+          `El horario conflicta con una cita existente: "${a.title}"`,
         );
       }
     }
@@ -218,7 +240,7 @@ export class AppointmentsService {
 
     if (!availability.isAvailable) {
       throw new BadRequestException(
-        `Provider is not available on this date: ${availability.reason}`,
+        `El proveedor no está disponible en esta fecha: ${availability.reason}`,
       );
     }
 
@@ -235,7 +257,7 @@ export class AppointmentsService {
 
     if (!withinSlot) {
       throw new BadRequestException(
-        'Requested time is outside the provider\'s working hours',
+        'El horario solicitado está fuera del horario de trabajo del proveedor',
       );
     }
   }
@@ -247,15 +269,19 @@ export class AppointmentsService {
   ) {
     if (!VALID_TRANSITIONS[current].includes(next)) {
       throw new BadRequestException(
-        `Invalid transition from ${current} to ${next}`,
+        `Transición de estado inválida: de ${current} a ${next}`,
       );
     }
-    const providerOnly: AppointmentStatus[] = [
+    const providerOrOwnerOnly: AppointmentStatus[] = [
       AppointmentStatus.CONFIRMED,
       AppointmentStatus.COMPLETED,
     ];
-    if (providerOnly.includes(next) && role !== UserRole.PROVIDER) {
-      throw new ForbiddenException(`Only providers can set status to ${next}`);
+    if (
+      providerOrOwnerOnly.includes(next) &&
+      role !== UserRole.PROVIDER &&
+      role !== UserRole.OWNER
+    ) {
+      throw new ForbiddenException(`Solo proveedores o admins pueden establecer el estado a ${next}`);
     }
   }
 }

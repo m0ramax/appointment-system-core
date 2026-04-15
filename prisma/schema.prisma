@@ -11,6 +11,7 @@ enum UserRole {
   CLIENT
   PROVIDER
   OWNER
+  SUPER_ADMIN
 }
 
 enum AppointmentStatus {
@@ -136,4 +137,14 @@ model ConversationState {
   state     String   @default("INICIO")
   context   Json     @default("{}")
   updatedAt DateTime @updatedAt
+}
+
+model InviteToken {
+  id        Int       @id @default(autoincrement())
+  token     String    @unique @default(uuid())
+  note      String?
+  used      Boolean   @default(false)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  usedByBusinessId Int?
 }
