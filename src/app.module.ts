@@ -7,6 +7,11 @@ import { WorkScheduleModule } from './work-schedule/work-schedule.module';
 import { WebhookModule } from './webhook/webhook.module';
 import { BusinessModule } from './business/business.module';
 import { ServicesModule } from './services/services.module';
+<<<<<<< Updated upstream
+=======
+import { InviteModule } from './invite/invite.module';
+import { AdminModule } from './admin/admin.module';
+>>>>>>> Stashed changes
 
 @Module({
   imports: [
@@ -18,6 +23,11 @@ import { ServicesModule } from './services/services.module';
     WebhookModule,
     BusinessModule,
     ServicesModule,
+<<<<<<< Updated upstream
+=======
+    InviteModule,
+    AdminModule,
+>>>>>>> Stashed changes
   ],
 })
 export class AppModule {}
