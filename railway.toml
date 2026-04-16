@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm ci && npm run build"
+buildCommand = "npm ci && npx prisma generate && npx nest build"
 
 [build.nixpacksPlan.phases.setup]
 nixPkgs = ["nodejs_22"]
