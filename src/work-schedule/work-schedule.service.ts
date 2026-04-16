@@ -82,7 +82,7 @@ export class WorkScheduleService {
     });
     if (existing)
       throw new BadRequestException(
-        `Schedule for ${dto.dayOfWeek} already exists`,
+        `Ya existe un horario para ${dto.dayOfWeek}`,
       );
     return this.prisma.workSchedule.create({ data: dto });
   }
@@ -112,7 +112,7 @@ export class WorkScheduleService {
       where: { providerId_date: { providerId: dto.providerId, date } },
     });
     if (existing)
-      throw new BadRequestException(`Exception for ${dto.date} already exists`);
+      throw new BadRequestException(`Ya existe una excepción para la fecha ${dto.date}`);
     return this.prisma.scheduleException.create({ data: { ...dto, date } });
   }
 
@@ -141,7 +141,7 @@ export class WorkScheduleService {
     const ex = await this.prisma.scheduleException.findUnique({
       where: { id },
     });
-    if (!ex) throw new NotFoundException('Exception not found');
+    if (!ex) throw new NotFoundException('Excepción no encontrada');
     return this.prisma.scheduleException.delete({ where: { id } });
   }
 
@@ -265,7 +265,7 @@ export class WorkScheduleService {
 
   private async findScheduleOrFail(id: number) {
     const s = await this.prisma.workSchedule.findUnique({ where: { id } });
-    if (!s) throw new NotFoundException('Work schedule not found');
+    if (!s) throw new NotFoundException('Horario no encontrado');
     return s;
   }
 }

@@ -46,8 +46,9 @@ export class AppointmentsController {
     @Query('date') date?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('all') all?: string,
   ) {
-    return this.service.findByBusiness(user.businessId, date, startDate, endDate);
+    return this.service.findByBusiness(user.businessId, date, startDate, endDate, all === 'true');
   }
 
   @Get('providers')

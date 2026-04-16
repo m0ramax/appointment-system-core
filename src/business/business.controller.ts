@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
@@ -17,8 +17,8 @@ export class BusinessController {
 
   @Post()
   @Roles('OWNER')
-  create(@Body() dto: CreateBusinessDto, @CurrentUser() user: any) {
-    return this.service.create(dto, user.id);
+  create(@Body() dto: CreateBusinessDto, @CurrentUser() user: any, @Query('token') token?: string) {
+    return this.service.create(dto, user.id, token);
   }
 
   @Get()
