@@ -1,6 +1,5 @@
 [build]
-builder = "railpack"
-buildCommand = "npm ci && npx prisma generate && npx nest build"
+builder = "dockerfile"
 
 [deploy]
 startCommand = "npm run start:prod"
