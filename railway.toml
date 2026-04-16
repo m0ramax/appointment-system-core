@@ -1,9 +1,6 @@
 [build]
-builder = "nixpacks"
+builder = "railpack"
 buildCommand = "npm ci && npx prisma generate && npx nest build"
-
-[build.nixpacksPlan.phases.setup]
-nixPkgs = ["nodejs_22"]
 
 [deploy]
 startCommand = "npm run start:prod"
