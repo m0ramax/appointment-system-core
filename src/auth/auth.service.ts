@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -18,6 +19,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
+    private platformSettings: PlatformSettingsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -25,6 +27,10 @@ export class AuthService {
   }
 
   async registerOwner(dto: RegisterDto) {
+    const settings = await this.platformSettings.getSettings();
+    if (!settings.registrationEnabled) {
+      throw new ForbiddenException('El registro está deshabilitado temporalmente');
+    }
     return this.createUser(dto.email, dto.password, UserRole.OWNER, null);
   }
 
