@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 
 jest.mock('bcrypt', () => ({
   hash:    jest.fn().mockResolvedValue('hashed-password'),
@@ -22,6 +24,14 @@ const mockJwt = {
   sign: jest.fn().mockReturnValue('signed-token'),
 };
 
+const mockConfig = {
+  get: jest.fn(),
+};
+
+const mockPlatformSettings = {
+  getSettings: jest.fn().mockResolvedValue({ id: 1, registrationEnabled: true }),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -31,11 +41,14 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: JwtService, useValue: mockJwt },
+        { provide: ConfigService, useValue: mockConfig },
+        { provide: PlatformSettingsService, useValue: mockPlatformSettings },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+    mockPlatformSettings.getSettings.mockResolvedValue({ id: 1, registrationEnabled: true });
   });
 
   describe('register()', () => {
@@ -115,6 +128,16 @@ describe('AuthService', () => {
       await expect(
         service.registerOwner({ email: 'owner@test.com', password: 'ownerpass' }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws ForbiddenException when registration is disabled', async () => {
+      mockPlatformSettings.getSettings.mockResolvedValue({ id: 1, registrationEnabled: false });
+
+      await expect(
+        service.registerOwner({ email: 'new@test.com', password: 'pass' }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
     });
   });
 

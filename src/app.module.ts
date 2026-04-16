@@ -9,6 +9,7 @@ import { BusinessModule } from './business/business.module';
 import { ServicesModule } from './services/services.module';
 import { InviteModule } from './invite/invite.module';
 import { AdminModule } from './admin/admin.module';
+import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AdminModule } from './admin/admin.module';
     ServicesModule,
     InviteModule,
     AdminModule,
+    PlatformSettingsModule,
   ],
 })
 export class AppModule {}

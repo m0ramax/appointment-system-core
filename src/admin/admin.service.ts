@@ -26,6 +26,16 @@ export class AdminService {
     });
   }
 
+  async setTeamMode(id: number, teamMode: boolean) {
+    const business = await this.prisma.business.findUnique({ where: { id } });
+    if (!business) throw new NotFoundException('Negocio no encontrado');
+    return this.prisma.business.update({
+      where: { id },
+      data: { teamMode },
+      include: { _count: { select: { users: true, services: true, appointments: true } } },
+    });
+  }
+
   async deleteBusiness(id: number) {
     const business = await this.prisma.business.findUnique({ where: { id } });
     if (!business) throw new NotFoundException('Negocio no encontrado');

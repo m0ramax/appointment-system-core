@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { InviteModule } from '../invite/invite.module';
+import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { InviteModule } from '../invite/invite.module';
       }),
     }),
     InviteModule,
+    PlatformSettingsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
