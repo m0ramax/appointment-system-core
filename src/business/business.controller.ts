@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { UpdateWhatsappNumberDto } from './dto/update-whatsapp-number.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -30,6 +31,18 @@ export class BusinessController {
   @Roles('OWNER')
   getTeam(@CurrentUser() user: any) {
     return this.service.getTeam(user.businessId);
+  }
+
+  @Patch('whatsapp-number')
+  @Roles('OWNER')
+  updateWhatsappNumber(@Body() dto: UpdateWhatsappNumberDto, @CurrentUser() user: any) {
+    return this.service.updateWhatsappNumber(user.businessId, dto);
+  }
+
+  @Get('bot-status')
+  @Roles('OWNER')
+  getBotStatus(@CurrentUser() user: any) {
+    return this.service.getBotStatus(user.businessId);
   }
 
   @Get(':id')
