@@ -28,7 +28,7 @@ export class WebhookController {
   ) {
     this.verifyToken = this.config.get<string>(
       'WHATSAPP_VERIFY_TOKEN',
-      'agendya_verify_token',
+      'tucita_verify_token',
     );
 
     const accountSid = this.config.get<string>('TWILIO_ACCOUNT_SID');
