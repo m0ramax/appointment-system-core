@@ -7,6 +7,7 @@ RUN npm ci
 
 COPY . .
 
+ARG BUILD_DATE
 RUN npx prisma generate && npx nest build
 
 EXPOSE 3000
