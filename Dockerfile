@@ -14,4 +14,4 @@ RUN ls -la /app/dist/ && echo "dist OK"
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "echo '=== dist contents ===' && ls /app/dist/ 2>&1 || echo 'dist MISSING' && npm run start:prod"]
+CMD ["npm", "run", "start:prod"]
