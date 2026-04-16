@@ -8,7 +8,9 @@ RUN npm ci
 COPY . .
 
 ARG BUILD_DATE
-RUN npx prisma generate && npx nest build
+RUN npx prisma generate
+RUN npx nest build
+RUN ls -la /app/dist/ && echo "dist OK"
 
 EXPOSE 3000
 
