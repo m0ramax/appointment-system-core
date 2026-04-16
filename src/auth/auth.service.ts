@@ -59,6 +59,16 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.hashedPassword);
     if (!valid) throw new UnauthorizedException('Credenciales inválidas');
 
+    if ((user.role === 'OWNER' || user.role === 'PROVIDER') && user.businessId) {
+      const business = await this.prisma.business.findUnique({
+        where: { id: user.businessId },
+        select: { suspended: true },
+      });
+      if (business?.suspended) {
+        throw new ForbiddenException('Este negocio ha sido suspendido. Contacta al administrador de la plataforma.');
+      }
+    }
+
     return this.signToken(user.id, user.email, user.role, user.businessId);
   }
 

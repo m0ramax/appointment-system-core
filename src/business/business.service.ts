@@ -54,7 +54,8 @@ export class BusinessService {
     return this.prisma.business.delete({ where: { id } });
   }
 
-  async getTeam(businessId: number) {
+  async getTeam(businessId: number | null) {
+    if (businessId === null) return [];
     return this.prisma.user.findMany({
       where: {
         businessId,

@@ -8,6 +8,7 @@ import { WebhookModule } from './webhook/webhook.module';
 import { BusinessModule } from './business/business.module';
 import { ServicesModule } from './services/services.module';
 import { InviteModule } from './invite/invite.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { InviteModule } from './invite/invite.module';
     BusinessModule,
     ServicesModule,
     InviteModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

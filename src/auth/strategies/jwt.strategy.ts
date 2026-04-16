@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../prisma/prisma.service';
 
 export interface JwtPayload {
   sub: number;
@@ -12,7 +13,10 @@ export interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private prisma: PrismaService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -20,7 +24,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload) {
+    if ((payload.role === 'OWNER' || payload.role === 'PROVIDER') && payload.businessId) {
+      const business = await this.prisma.business.findUnique({
+        where: { id: payload.businessId },
+        select: { suspended: true },
+      });
+      if (business?.suspended) {
+        throw new ForbiddenException('Este negocio ha sido suspendido');
+      }
+    }
     return { id: payload.sub, email: payload.email, role: payload.role, businessId: payload.businessId };
   }
 }

@@ -4,6 +4,7 @@ import { InviteService } from './invite.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('invite')
 @ApiBearerAuth()
@@ -30,6 +31,7 @@ export class InviteController {
     return this.service.getStats();
   }
 
+  @Public()
   @Get('validate/:token')
   validate(@Param('token') token: string) {
     return this.service.validate(token);
