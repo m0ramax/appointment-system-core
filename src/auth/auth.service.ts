@@ -27,10 +27,6 @@ export class AuthService {
   }
 
   async registerOwner(dto: RegisterDto) {
-    const settings = await this.platformSettings.getSettings();
-    if (!settings.registrationEnabled) {
-      throw new ForbiddenException('El registro está deshabilitado temporalmente');
-    }
     return this.createUser(dto.email, dto.password, UserRole.OWNER, null);
   }
 
