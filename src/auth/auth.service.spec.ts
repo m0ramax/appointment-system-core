@@ -18,6 +18,9 @@ const mockPrisma = {
     findUnique: jest.fn(),
     create: jest.fn(),
   },
+  business: {
+    findUnique: jest.fn(),
+  },
 };
 
 const mockJwt = {
@@ -117,7 +120,6 @@ describe('AuthService', () => {
       });
 
       expect(result).toEqual({ access_token: 'signed-token' });
-      // role passed to create should be OWNER
       const createCall = mockPrisma.user.create.mock.calls[0][0];
       expect(createCall.data.role).toBe(UserRole.OWNER);
     });
@@ -130,14 +132,96 @@ describe('AuthService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('throws ForbiddenException when registration is disabled', async () => {
+    it('succeeds even when registrationEnabled is false (invite bypasses flag)', async () => {
       mockPlatformSettings.getSettings.mockResolvedValue({ id: 1, registrationEnabled: false });
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 11,
+        email: 'invited@test.com',
+        role: UserRole.OWNER,
+        businessId: null,
+      });
+
+      const result = await service.registerOwner({ email: 'invited@test.com', password: 'pass' });
+
+      expect(result).toEqual({ access_token: 'signed-token' });
+      expect(mockPrisma.user.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('registerProvider()', () => {
+    it('creates a PROVIDER user linked to the given businessId', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 20,
+        email: 'provider@test.com',
+        role: UserRole.PROVIDER,
+        businessId: 5,
+      });
+
+      const result = await service.registerProvider(
+        { email: 'provider@test.com', password: 'provpass' },
+        5,
+      );
+
+      expect(result).toEqual({ access_token: 'signed-token' });
+      const createCall = mockPrisma.user.create.mock.calls[0][0];
+      expect(createCall.data.role).toBe(UserRole.PROVIDER);
+      expect(createCall.data.businessId).toBe(5);
+    });
+
+    it('throws ConflictException when email already exists', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 20, email: 'provider@test.com' });
 
       await expect(
-        service.registerOwner({ email: 'new@test.com', password: 'pass' }),
+        service.registerProvider({ email: 'provider@test.com', password: 'pass' }, 5),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('registerSuperAdmin()', () => {
+    it('returns access_token when secret is correct', async () => {
+      mockConfig.get.mockReturnValue('correct-secret');
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 99,
+        email: 'admin@tucita.app',
+        role: UserRole.SUPER_ADMIN,
+        businessId: null,
+      });
+
+      const result = await service.registerSuperAdmin(
+        { email: 'admin@tucita.app', password: 'adminpass' },
+        'correct-secret',
+      );
+
+      expect(result).toEqual({ access_token: 'signed-token' });
+      const createCall = mockPrisma.user.create.mock.calls[0][0];
+      expect(createCall.data.role).toBe(UserRole.SUPER_ADMIN);
+    });
+
+    it('throws ForbiddenException when secret is wrong', async () => {
+      mockConfig.get.mockReturnValue('correct-secret');
+
+      await expect(
+        service.registerSuperAdmin(
+          { email: 'admin@tucita.app', password: 'adminpass' },
+          'wrong-secret',
+        ),
       ).rejects.toThrow(ForbiddenException);
 
       expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when SUPER_ADMIN_SECRET is not configured', async () => {
+      mockConfig.get.mockReturnValue(undefined);
+
+      await expect(
+        service.registerSuperAdmin(
+          { email: 'admin@tucita.app', password: 'adminpass' },
+          'any-secret',
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -185,6 +269,59 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
 
       expect(mockJwt.sign).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when OWNER business is suspended', async () => {
+      const ownerUser = {
+        id: 30,
+        email: 'owner@test.com',
+        role: UserRole.OWNER,
+        businessId: 7,
+        hashedPassword: 'hashed-password',
+      };
+      mockPrisma.user.findUnique.mockResolvedValue(ownerUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockPrisma.business.findUnique.mockResolvedValue({ suspended: true });
+
+      await expect(
+        service.login({ email: 'owner@test.com', password: 'correct' }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockJwt.sign).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when PROVIDER business is suspended', async () => {
+      const providerUser = {
+        id: 31,
+        email: 'provider@test.com',
+        role: UserRole.PROVIDER,
+        businessId: 7,
+        hashedPassword: 'hashed-password',
+      };
+      mockPrisma.user.findUnique.mockResolvedValue(providerUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockPrisma.business.findUnique.mockResolvedValue({ suspended: true });
+
+      await expect(
+        service.login({ email: 'provider@test.com', password: 'correct' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('returns token for OWNER when business is active', async () => {
+      const ownerUser = {
+        id: 32,
+        email: 'active-owner@test.com',
+        role: UserRole.OWNER,
+        businessId: 8,
+        hashedPassword: 'hashed-password',
+      };
+      mockPrisma.user.findUnique.mockResolvedValue(ownerUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockPrisma.business.findUnique.mockResolvedValue({ suspended: false });
+
+      const result = await service.login({ email: 'active-owner@test.com', password: 'correct' });
+
+      expect(result).toEqual({ access_token: 'signed-token' });
     });
   });
 });
