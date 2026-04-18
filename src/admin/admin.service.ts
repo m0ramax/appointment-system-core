@@ -8,6 +8,11 @@ export class AdminService {
   async findAllBusinesses() {
     return this.prisma.business.findMany({
       include: {
+        users: {
+          where: { role: 'OWNER' },
+          select: { email: true },
+          take: 1,
+        },
         _count: {
           select: { users: true, services: true, appointments: true },
         },
