@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto, RegisterOwnerDto, RegisterProviderDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -18,20 +19,21 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @Throttle({ default: { limit: 10, ttl: 300_000 } })
   register(@Body() dto: RegisterDto) {
     return this.auth.register(dto);
   }
 
   @Post('register/owner')
+  @Throttle({ default: { limit: 10, ttl: 300_000 } })
   async registerOwner(@Body() dto: RegisterOwnerDto, @Query('token') token: string) {
     const invite = await this.invite.validate(token);
     const result = await this.auth.registerOwner(dto);
-    // Mark invite used after business is created (businessId linked later via /business)
-    // We store the token in the response so the frontend can pass it on business creation
     return { ...result, inviteToken: invite.token };
   }
 
   @Post('register/super-admin')
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
   registerSuperAdmin(@Body() dto: RegisterDto, @Query('secret') secret: string) {
     return this.auth.registerSuperAdmin(dto, secret);
   }
@@ -45,6 +47,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 300_000 } })
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
   }
