@@ -104,7 +104,8 @@ export class WebhookController {
         const msg = change.messages[0];
         if (msg.type !== 'text') return res.json({ status: 'ok' });
         phone = msg.from;
-        toNumber = change.metadata?.display_phone_number ?? '';
+        const raw = change.metadata?.display_phone_number ?? '';
+        toNumber = raw && !raw.startsWith('+') ? `+${raw}` : raw;
         message = msg.text.body.trim();
       } catch {
         return res.json({ status: 'ok' });

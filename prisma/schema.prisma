@@ -69,6 +69,8 @@ model Service {
 model User {
   id                   Int                 @id @default(autoincrement())
   email                String              @unique
+  name                 String?
+  phone                String?
   hashedPassword       String
   role                 UserRole            @default(CLIENT)
   businessId           Int?

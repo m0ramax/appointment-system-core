@@ -12,6 +12,7 @@ import { ServicesModule } from './services/services.module';
 import { InviteModule } from './invite/invite.module';
 import { AdminModule } from './admin/admin.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { PlatformSettingsModule } from './platform-settings/platform-settings.mo
     InviteModule,
     AdminModule,
     PlatformSettingsModule,
+    UsersModule,
   ],
   providers: [
     {
