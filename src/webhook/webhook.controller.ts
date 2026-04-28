@@ -43,8 +43,11 @@ export class WebhookController {
   }
 
   private async sendMetaMessage(to: string, text: string): Promise<void> {
-    if (!this.metaToken || !this.metaPhoneNumberId) return;
-    await fetch(
+    if (!this.metaToken || !this.metaPhoneNumberId) {
+      console.warn('[webhook] sendMetaMessage skipped: missing WHATSAPP_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID');
+      return;
+    }
+    const res = await fetch(
       `https://graph.facebook.com/v19.0/${this.metaPhoneNumberId}/messages`,
       {
         method: 'POST',
@@ -60,6 +63,10 @@ export class WebhookController {
         }),
       },
     );
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[webhook] Meta API error ${res.status}: ${body}`);
+    }
   }
 
   /** Meta WhatsApp Cloud API verification */
