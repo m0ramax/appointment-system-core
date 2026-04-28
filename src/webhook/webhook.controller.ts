@@ -20,6 +20,8 @@ export class WebhookController {
   private readonly verifyToken: string;
   private readonly twilioClient: ReturnType<typeof Twilio> | null;
   private readonly twilioFrom: string;
+  private readonly metaToken: string | null;
+  private readonly metaPhoneNumberId: string | null;
 
   constructor(
     private config: ConfigService,
@@ -34,8 +36,30 @@ export class WebhookController {
     const accountSid = this.config.get<string>('TWILIO_ACCOUNT_SID');
     const authToken = this.config.get<string>('TWILIO_AUTH_TOKEN');
     this.twilioFrom = this.config.get<string>('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886');
-
     this.twilioClient = accountSid && authToken ? Twilio(accountSid, authToken) : null;
+
+    this.metaToken = this.config.get<string>('WHATSAPP_ACCESS_TOKEN') ?? null;
+    this.metaPhoneNumberId = this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID') ?? null;
+  }
+
+  private async sendMetaMessage(to: string, text: string): Promise<void> {
+    if (!this.metaToken || !this.metaPhoneNumberId) return;
+    await fetch(
+      `https://graph.facebook.com/v19.0/${this.metaPhoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.metaToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to,
+          type: 'text',
+          text: { body: text },
+        }),
+      },
+    );
   }
 
   /** Meta WhatsApp Cloud API verification */
@@ -121,6 +145,8 @@ export class WebhookController {
       );
     }
 
-    return res.json({ status: 'ok', reply });
+    // Meta Cloud API — enviar respuesta activamente
+    await this.sendMetaMessage(phone, reply);
+    return res.json({ status: 'ok' });
   }
 }
