@@ -5,6 +5,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UpdateTeamModeDto } from './dto/update-team-mode.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateAdminBusinessDto } from './dto/update-admin-business.dto';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -34,8 +36,23 @@ export class AdminController {
     return this.service.setTeamMode(id, dto.teamMode);
   }
 
+  @Patch('businesses/:id')
+  updateBusiness(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAdminBusinessDto) {
+    return this.service.updateBusiness(id, dto);
+  }
+
   @Delete('businesses/:id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.deleteBusiness(id);
+  }
+
+  @Get('users')
+  findAllUsers() {
+    return this.service.findAllUsers();
+  }
+
+  @Patch('users/:id')
+  updateUser(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUserDto) {
+    return this.service.updateUser(id, dto);
   }
 }
