@@ -21,6 +21,12 @@ export class ServicesController {
     return this.service.create(dto, user.businessId);
   }
 
+  @Get()
+  @Roles('OWNER')
+  findAll(@CurrentUser() user: any) {
+    return this.service.findAllByBusiness(user.businessId);
+  }
+
   @Get('business/:businessId')
   findByBusiness(@Param('businessId', ParseIntPipe) businessId: number) {
     return this.service.findByBusiness(businessId);

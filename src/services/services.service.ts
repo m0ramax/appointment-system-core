@@ -18,6 +18,13 @@ export class ServicesService {
     });
   }
 
+  async findAllByBusiness(businessId: number) {
+    return this.prisma.service.findMany({
+      where: { businessId },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async update(id: number, dto: UpdateServiceDto, businessId: number) {
     const service = await this.prisma.service.findUnique({ where: { id } });
     if (!service) throw new NotFoundException('Servicio no encontrado');

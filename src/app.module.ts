@@ -13,6 +13,7 @@ import { InviteModule } from './invite/invite.module';
 import { AdminModule } from './admin/admin.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { UsersModule } from './users/users.module';
+import { BotConfigModule } from './bot-config/bot-config.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module';
     AdminModule,
     PlatformSettingsModule,
     UsersModule,
+    BotConfigModule,
   ],
   providers: [
     {
