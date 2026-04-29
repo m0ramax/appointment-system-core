@@ -73,7 +73,7 @@ export class StateMachineService {
 
     switch (currentState) {
       case 'INICIO':
-        return this.handleInicio(ctx, toNumber);
+        return this.handleInicio(ctx, toNumber, msg);
       case 'ELIGIENDO_SERVICIO':
         return this.handleServicio(ctx, msg);
       case 'ELIGIENDO_PROVIDER':
@@ -85,21 +85,40 @@ export class StateMachineService {
       case 'CONFIRMANDO':
         return this.handleConfirmando(ctx, msg, phone);
       default:
-        return this.handleInicio(ctx, toNumber);
+        return this.handleInicio(ctx, toNumber, msg);
     }
   }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  private async handleInicio(ctx: Record<string, any>, toNumber: string): Promise<StepResult> {
-    const business = await this.prisma.business.findUnique({
-      where: { whatsappNumber: toNumber },
-      include: { services: { where: { isActive: true }, orderBy: { name: 'asc' } } },
-    });
+  private async handleInicio(
+    ctx: Record<string, any>,
+    toNumber: string,
+    slugCandidate: string,
+  ): Promise<StepResult> {
+    const include = { services: { where: { isActive: true }, orderBy: { name: 'asc' } } } as const;
+
+    // 1. Try slug lookup (user typed the slug, e.g. via wa.me link)
+    let business = slugCandidate
+      ? await this.prisma.business.findUnique({ where: { slug: slugCandidate }, include })
+      : null;
+
+    // 2. Fall back to destination WhatsApp number
+    if (!business && toNumber) {
+      business = await this.prisma.business.findUnique({ where: { whatsappNumber: toNumber }, include });
+    }
 
     if (!business) {
       return {
-        reply: 'Lo sentimos, el sistema de agendamiento no está disponible.',
+        reply: 'Bienvenido a TuCita. Para agendar una cita escribe el identificador de tu negocio.',
+        nextState: 'INICIO',
+        nextContext: {},
+      };
+    }
+
+    if (business.suspended) {
+      return {
+        reply: 'Lo sentimos, este negocio no está disponible actualmente.',
         nextState: 'INICIO',
         nextContext: {},
       };
@@ -113,15 +132,20 @@ export class StateMachineService {
       };
     }
 
+    const welcomeMsg = business.whatsappWelcome
+      ?? `Hola, bienvenido a ${business.name}. ¿Qué tipo de cita necesitas?`;
     const menu = business.services.map((s, i) => `${i + 1}. ${s.name}`).join('\n');
+
     return {
-      reply: `Hola! Bienvenido a ${business.name}.\n\n¿Qué tipo de cita necesitas?\n${menu}\n\nResponde con el número o el nombre.`,
+      reply: `${welcomeMsg}\n\n${menu}\n\nResponde con el número o el nombre.`,
       nextState: 'ELIGIENDO_SERVICIO',
       nextContext: {
         phone: ctx.phone,
         business_id: business.id,
         business_name: business.name,
         allow_provider_selection: business.allowProviderSelection,
+        whatsapp_confirmation: business.whatsappConfirmation ?? null,
+        whatsapp_cancellation: business.whatsappCancellation ?? null,
         services: business.services.map((s) => ({ id: s.id, name: s.name, duration: s.durationMinutes })),
       },
     };
@@ -326,13 +350,15 @@ export class StateMachineService {
       };
     }
 
+    const confirmReply = ctx.whatsapp_confirmation
+      ? (ctx.whatsapp_confirmation as string)
+          .replace('{service}', ctx.servicio)
+          .replace('{date}', ctx.dia)
+          .replace('{time}', ctx.hora)
+      : `¡Cita confirmada!\n\nServicio: ${ctx.servicio}\nFecha: ${ctx.dia}\nHora: ${ctx.hora}\n\nTe esperamos. Para cancelar contáctanos.`;
+
     return {
-      reply:
-        `¡Cita confirmada!\n\n` +
-        `Servicio: ${ctx.servicio}\n` +
-        `Fecha: ${ctx.dia}\n` +
-        `Hora: ${ctx.hora}\n\n` +
-        `Te esperamos. Para cancelar contáctanos.`,
+      reply: confirmReply,
       nextState: 'CONFIRMADO',
       nextContext: {},
     };
