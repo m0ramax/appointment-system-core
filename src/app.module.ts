@@ -14,6 +14,7 @@ import { AdminModule } from './admin/admin.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 import { UsersModule } from './users/users.module';
 import { BotConfigModule } from './bot-config/bot-config.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { BotConfigModule } from './bot-config/bot-config.module';
     PlatformSettingsModule,
     UsersModule,
     BotConfigModule,
+    ReviewsModule,
   ],
   providers: [
     {

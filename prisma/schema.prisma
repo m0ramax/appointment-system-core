@@ -56,6 +56,7 @@ model Business {
   services               Service[]
   appointments           Appointment[]
   botConfig              BusinessBotConfig?
+  reviews                Review[]
 }
 
 model PlatformSettings {
@@ -110,6 +111,7 @@ model Appointment {
   provider        User              @relation("ProviderAppointments", fields: [providerId], references: [id], onDelete: Cascade)
   business        Business?         @relation(fields: [businessId], references: [id], onDelete: SetNull)
   service         Service?          @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  review          Review?
 }
 
 model WorkSchedule {
@@ -166,6 +168,19 @@ model InviteToken {
   expiresAt        DateTime
   createdAt        DateTime @default(now())
   usedByBusinessId Int?
+}
+
+model Review {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  businessId    Int
+  appointmentId Int         @unique
+  rating        Int?
+  comment       String?
+  clientName    String?
+  token         String      @unique @default(uuid())
+  business      Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 }
 
 model BusinessBotConfig {
