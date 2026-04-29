@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { UpdateBusinessInfoDto } from './dto/update-business-info.dto';
 import { UpdateWhatsappNumberDto } from './dto/update-whatsapp-number.dto';
 import { UpdateWhatsappConfigDto } from './dto/update-whatsapp-config.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -45,6 +46,18 @@ export class BusinessController {
   @Roles('OWNER')
   getBotStatus(@CurrentUser() user: any) {
     return this.service.getBotStatus(user.businessId);
+  }
+
+  @Get('me')
+  @Roles('OWNER')
+  getMe(@CurrentUser() user: any) {
+    return this.service.getMe(user.businessId);
+  }
+
+  @Patch('me')
+  @Roles('OWNER')
+  updateMe(@Body() dto: UpdateBusinessInfoDto, @CurrentUser() user: any) {
+    return this.service.updateMe(user.businessId, dto);
   }
 
   @Patch('me/whatsapp-config')

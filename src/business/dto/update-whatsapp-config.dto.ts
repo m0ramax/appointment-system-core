@@ -1,14 +1,7 @@
-import { IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateWhatsappConfigDto {
-  @ApiProperty({ required: false, example: 'barberia_moramax' })
-  @IsString()
-  @IsOptional()
-  @Matches(/^[a-z0-9_]+$/, { message: 'El slug solo puede contener letras minúsculas, números y guión bajo' })
-  @MaxLength(60)
-  slug?: string;
-
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()

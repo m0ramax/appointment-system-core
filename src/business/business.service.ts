@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { UpdateBusinessInfoDto } from './dto/update-business-info.dto';
 import { UpdateWhatsappNumberDto } from './dto/update-whatsapp-number.dto';
 import { UpdateWhatsappConfigDto } from './dto/update-whatsapp-config.dto';
 import { InviteService } from '../invite/invite.service';
@@ -83,13 +84,42 @@ export class BusinessService {
   }
 
   async updateWhatsappConfig(businessId: number, dto: UpdateWhatsappConfigDto) {
-    if (dto.slug) {
-      const conflict = await this.prisma.business.findUnique({ where: { slug: dto.slug } });
-      if (conflict && conflict.id !== businessId) {
-        throw new ConflictException('El slug ya está en uso por otro negocio');
-      }
-    }
     return this.prisma.business.update({ where: { id: businessId }, data: dto });
+  }
+
+  async getMe(businessId: number) {
+    const business = await this.prisma.business.findUnique({ where: { id: businessId } });
+    if (!business) throw new NotFoundException('Negocio no encontrado');
+    return business;
+  }
+
+  async updateMe(businessId: number, dto: UpdateBusinessInfoDto) {
+    const data: Record<string, any> = { ...dto };
+    if (dto.name) {
+      const base = this.toSlug(dto.name);
+      data.slug = await this.uniqueSlug(base, businessId);
+    }
+    return this.prisma.business.update({ where: { id: businessId }, data });
+  }
+
+  private toSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, '')
+      .trim()
+      .replace(/\s+/g, '_');
+  }
+
+  private async uniqueSlug(base: string, excludeId: number): Promise<string> {
+    let candidate = base;
+    let counter = 2;
+    for (;;) {
+      const conflict = await this.prisma.business.findUnique({ where: { slug: candidate } });
+      if (!conflict || conflict.id === excludeId) return candidate;
+      candidate = `${base}_${counter++}`;
+    }
   }
 
   async findBySlug(slug: string) {
