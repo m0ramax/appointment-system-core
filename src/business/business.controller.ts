@@ -4,10 +4,12 @@ import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateWhatsappNumberDto } from './dto/update-whatsapp-number.dto';
+import { UpdateWhatsappConfigDto } from './dto/update-whatsapp-config.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('business')
 @ApiBearerAuth()
@@ -43,6 +45,18 @@ export class BusinessController {
   @Roles('OWNER')
   getBotStatus(@CurrentUser() user: any) {
     return this.service.getBotStatus(user.businessId);
+  }
+
+  @Patch('me/whatsapp-config')
+  @Roles('OWNER')
+  updateWhatsappConfig(@Body() dto: UpdateWhatsappConfigDto, @CurrentUser() user: any) {
+    return this.service.updateWhatsappConfig(user.businessId, dto);
+  }
+
+  @Public()
+  @Get('slug/:slug')
+  findBySlug(@Param('slug') slug: string) {
+    return this.service.findBySlug(slug);
   }
 
   @Get(':id')

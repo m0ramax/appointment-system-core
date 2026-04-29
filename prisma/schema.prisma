@@ -41,7 +41,13 @@ enum ExceptionType {
 model Business {
   id                     Int                @id @default(autoincrement())
   name                   String
+  slug                   String?            @unique
   whatsappNumber         String             @unique
+  whatsappWelcome        String?
+  whatsappConfirmation   String?
+  whatsappCancellation   String?
+  appointmentDuration    Int                @default(30)
+  timezone               String             @default("America/Santiago")
   allowProviderSelection Boolean            @default(false)
   suspended              Boolean            @default(false)
   teamMode               Boolean            @default(false)

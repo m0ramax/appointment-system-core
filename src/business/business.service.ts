@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateWhatsappNumberDto } from './dto/update-whatsapp-number.dto';
+import { UpdateWhatsappConfigDto } from './dto/update-whatsapp-config.dto';
 import { InviteService } from '../invite/invite.service';
 
 @Injectable()
@@ -79,6 +80,36 @@ export class BusinessService {
       where: { id: businessId },
       data: { whatsappNumber: dto.whatsappNumber },
     });
+  }
+
+  async updateWhatsappConfig(businessId: number, dto: UpdateWhatsappConfigDto) {
+    if (dto.slug) {
+      const conflict = await this.prisma.business.findUnique({ where: { slug: dto.slug } });
+      if (conflict && conflict.id !== businessId) {
+        throw new ConflictException('El slug ya está en uso por otro negocio');
+      }
+    }
+    return this.prisma.business.update({ where: { id: businessId }, data: dto });
+  }
+
+  async findBySlug(slug: string) {
+    const business = await this.prisma.business.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        whatsappWelcome: true,
+        whatsappConfirmation: true,
+        whatsappCancellation: true,
+        appointmentDuration: true,
+        timezone: true,
+        allowProviderSelection: true,
+        teamMode: true,
+      },
+    });
+    if (!business) throw new NotFoundException('Negocio no encontrado');
+    return business;
   }
 
   async getBotStatus(businessId: number) {
