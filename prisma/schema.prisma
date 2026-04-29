@@ -48,6 +48,10 @@ model Business {
   whatsappCancellation   String?
   appointmentDuration    Int                @default(30)
   timezone               String             @default("America/Santiago")
+  description            String?
+  phone                  String?
+  address                String?
+  logoUrl                String?
   allowProviderSelection Boolean            @default(false)
   suspended              Boolean            @default(false)
   teamMode               Boolean            @default(false)
