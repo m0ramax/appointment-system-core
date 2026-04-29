@@ -39,16 +39,17 @@ enum ExceptionType {
 }
 
 model Business {
-  id                     Int           @id @default(autoincrement())
+  id                     Int                @id @default(autoincrement())
   name                   String
-  whatsappNumber         String        @unique
-  allowProviderSelection Boolean       @default(false)
-  suspended              Boolean       @default(false)
-  teamMode               Boolean       @default(false)
-  createdAt              DateTime      @default(now())
+  whatsappNumber         String             @unique
+  allowProviderSelection Boolean            @default(false)
+  suspended              Boolean            @default(false)
+  teamMode               Boolean            @default(false)
+  createdAt              DateTime           @default(now())
   users                  User[]
   services               Service[]
   appointments           Appointment[]
+  botConfig              BusinessBotConfig?
 }
 
 model PlatformSettings {
@@ -60,6 +61,8 @@ model Service {
   id              Int           @id @default(autoincrement())
   businessId      Int
   name            String
+  description     String?
+  price           Decimal?      @db.Decimal(10, 2)
   durationMinutes Int           @default(30)
   isActive        Boolean       @default(true)
   business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -150,11 +153,26 @@ model ConversationState {
 }
 
 model InviteToken {
-  id        Int       @id @default(autoincrement())
-  token     String    @unique @default(uuid())
-  note      String?
-  used      Boolean   @default(false)
-  expiresAt DateTime
-  createdAt DateTime  @default(now())
+  id               Int      @id @default(autoincrement())
+  token            String   @unique @default(uuid())
+  note             String?
+  used             Boolean  @default(false)
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
   usedByBusinessId Int?
+}
+
+model BusinessBotConfig {
+  id              Int      @id @default(autoincrement())
+  businessId      Int      @unique
+  welcomeMessage  String?
+  askService      String?
+  askProvider     String?
+  askDate         String?
+  askTime         String?
+  confirmPrompt   String?
+  confirmSuccess  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
